@@ -114,7 +114,11 @@ async fn main() -> Result<(),()> {
                 
         // creature
 
-        let model_name = item.as_node().select_first("td:nth-child(2) span").expect("Model name not found");
+        let model_name = item.as_node().select_first("td:nth-child(2) span");
+        if model_name.is_err() {
+            continue;
+        }
+        let model_name = model_name.unwrap();
         models.push(format!("art/dynamic/{}/model/{}.gr2", slot_name, model_name.text_contents()));
 
         let extra_models = item.as_node().select("td:nth-child(2) ul li span").unwrap();
