@@ -1,0 +1,14 @@
+[package]
+name = "jedipedia_npc_converter"
+version = "0.1.0"
+edition = "2021"
+authors = ["viewmatrix"]
+description = "Converts Jedipedia NPC data to a format that can be used to import a NPC into Blender."
+
+[dependencies]
+reqwest = "0.12.9"
+tokio = { version = "1", features = ["full"] }
+kuchikiki = "0.8.6-speedreader"
+spex = "0.2.2"
+serde_json = "1.0.134"
+toml = "0.8.19"

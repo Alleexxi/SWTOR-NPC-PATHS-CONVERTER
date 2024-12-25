@@ -3,6 +3,8 @@
 
 A simple program that retrieves the paths of an NPC from Jedipedia and saves them in the standardized `paths.json` format.
 
+# ONLY WORKS ON EN JEDIPEDIA
+
 ## Features
 - Fetch NPC paths from Jedipedia
 - Save paths in a standardized `paths.json` file
