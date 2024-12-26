@@ -2,6 +2,7 @@
 # SWTOR NPC Paths Converter
 
 A simple program that retrieves the paths of an NPC from Jedipedia and saves them in the standardized `paths.json` format.
+This currently has some bugs.
 
 # ONLY WORKS ON EN JEDIPEDIA
 
@@ -10,8 +11,9 @@ A simple program that retrieves the paths of an NPC from Jedipedia and saves the
 - Save paths in a standardized `paths.json` file
 
 ## To-Do
-- [ ] Refactor the code
-- [ ] Add more features (e.g., error handling)
+- [X] Refactor the code
+- [ ] Add Support for skin/haircolor
+- [ ] Add error handling
 
 ## Usage
 

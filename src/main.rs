@@ -5,27 +5,12 @@ use std::path::Path;
 use std::result::Result;
 use kuchikiki::{self as kuchiki};
 use kuchikiki::traits::TendrilSink;
-use spex::parsing::XmlReader;
 use serde_json::{json, Value, Map};
 
-#[derive(Debug)]
-struct DdsPaths {
-    palette_map: String,
-    palette_mask_map: String,
-    diffuse_map: String,
-    gloss_map: String,
-    rotation_map: String,
-}
+mod types;
+mod funcs;
 
-#[derive(Debug, Default)]
-struct EyeMatOtherValues {
-    palette1: Vec<String>,
-    palette2: Vec<String>,
-    palette1Specular: Vec<String>,
-    palette2Specular: Vec<String>,
-    palette1MetallicSpecular: Vec<String>,
-    palette2MetallicSpecular: Vec<String>,
-}
+use types::{DdsPaths, OtherValues};
 
 #[tokio::main]
 async fn main() -> Result<(),()> {
@@ -90,8 +75,9 @@ async fn main() -> Result<(),()> {
         }
 
         let slot_name = item.as_node().select_first("td:nth-child(1)").unwrap();
-        let slot_name = slot_name.text_contents();
-
+        let slot_name: Vec<String> = slot_name.text_contents().split("(").map(String::from).collect();
+        let slot_name = slot_name[0].trim();
+    
         let mut models: Vec<String> = Vec::new();
         let mut materials: Vec<String> = Vec::new();
         let mut garments = Vec::new();
@@ -139,110 +125,64 @@ async fn main() -> Result<(),()> {
             }
         }
 
-        if garments.is_empty() && slot_name != "creature" {
+        if materials.is_empty() {
             continue;
         }
 
-        #[allow(unused_variables)]
-        let mut dds = DdsPaths {
-            palette_map: String::from("/art/defaultassets/black.dds"),
-            palette_mask_map: String::from("/art/defaultassets/black.dds"),
-            diffuse_map: String::from("/art/defaultassets/black.dds"),
-            gloss_map: String::from("/art/defaultassets/black.dds"),
-            rotation_map: String::from("/art/defaultassets/black.dds"),
+        let normal_material = materials[0].clone();
+        let normal_dds = funcs::extract_dds_paths(ressources_path.join(normal_material.clone()));
+        let normal_flush = funcs::extract_flush(ressources_path.join(normal_material.clone()));
+        let normal_flesh = funcs::extract_flesh(ressources_path.join(normal_material.clone()));
+
+        let dds = normal_dds;
+
+        let eye_dds = if materials.len() > 1 {
+            let eye_material = materials[1].clone();
+            funcs::extract_dds_paths(ressources_path.join(eye_material))
+        } else {
+            DdsPaths::default()
+        };
+
+        let eye_pallets = if materials.len() > 1 {
+            funcs::extract_palletes(ressources_path.join(materials[1].clone()))
+        } else {
+            OtherValues::default()
+        };
+
+        let eye_flush: Vec<f64> = if materials.len() > 1 {
+            funcs::extract_flush(ressources_path.join(materials[1].clone()))
+        } else {
+            vec![0.0,0.0,0.0,0.0]
+        };
+
+        let eye_flesh: f64 = if materials.len() > 1 {
+            funcs::extract_flesh(ressources_path.join(materials[1].clone()))
+        } else {
+            0.1
         };
 
         #[allow(unused_variables)]
-        let mut dds_eye = DdsPaths {
-            palette_map: String::from("/art/defaultassets/black.dds"),
-            palette_mask_map: String::from("/art/defaultassets/black.dds"),
-            diffuse_map: String::from("/art/defaultassets/black.dds"),
-            gloss_map: String::from("/art/defaultassets/black.dds"),
-            rotation_map: String::from("/art/defaultassets/black.dds"),
-        };
+        let dds_eye = eye_dds;
+        let eye_mat_other_values = eye_pallets;
 
-        let mut eye_mat_other_values = EyeMatOtherValues::default();
+        let mut garment_map_temp = funcs::extract_garments(garments.clone());
 
-        for (index, material) in materials.iter().enumerate() {
-            let path = ressources_path.join(material);
-
-            let xml_file = File::open(path).unwrap();
-            let xml_doc = XmlReader::parse_auto(xml_file).unwrap();
-            let inputs: Vec<_> = xml_doc.root().all("input").iter().collect();
-            
-            let dds_target = if index == 0 { &mut dds } else { &mut dds_eye };
-            let is_eye = index != 0;
-
-            for input in inputs {
-            let name = input.req("semantic").text().unwrap();
-            let value = input.req("value").text().unwrap();
-            
-            let value_split = value.split(",").map(|s| s.to_string()).collect::<Vec<String>>();
-
-            if is_eye {
-                match name {
-                    #[allow(unused_assignments)]
-                    "palette1" => eye_mat_other_values.palette1 = value_split,
-                    #[allow(unused_assignments)]
-                    "palette2" => eye_mat_other_values.palette2 = value_split,
-                    #[allow(unused_assignments)]
-                    "palette1Specular" => eye_mat_other_values.palette1Specular = value_split,
-                    #[allow(unused_assignments)]
-                    "palette2Specular" => eye_mat_other_values.palette2Specular = value_split,
-                    #[allow(unused_assignments)]
-                    "palette1MetallicSpecular" => eye_mat_other_values.palette1MetallicSpecular = value_split,
-                    #[allow(unused_assignments)]
-                    "palette2MetallicSpecular" => eye_mat_other_values.palette2MetallicSpecular = value_split,
-                    _ => {}
-                }
-            }
-            
-            let value = if !value.starts_with("/") && !value.starts_with("\\") {
-                format!("/{}.dds", value)
-            } else {
-                format!("{}.dds", value.replace("\\", "/"))
-            };
-
-            match name {
-                #[allow(unused_assignments)]
-                "PaletteMap" => dds_target.palette_map = value.clone(),
-                #[allow(unused_assignments)]
-                "PaletteMaskMap" => dds_target.palette_mask_map = value.clone(),
-                #[allow(unused_assignments)]
-                "DiffuseMap" => dds_target.diffuse_map = value.clone(),
-                #[allow(unused_assignments)]
-                "GlossMap" => dds_target.gloss_map = value.clone(),
-                #[allow(unused_assignments)]
-                "RotationMap1" => dds_target.rotation_map = value.clone(),
-                _ => {}
-            }
-            }            
+        if slot_name == "hand" {
+            println!("{:?} {:?}", garment_map_temp, garments);
         }
 
-        let mut garment_map_temp = Map::new();
+        if garment_map_temp.is_empty() {
+            // get the default values from the .mat file
+            let default_pallets = funcs::extract_palletes(ressources_path.join(materials[0].clone()));
+            garment_map_temp.insert("palette1".to_string(), Value::Array(default_pallets.palette1.into_iter().map(|x| Value::String(x)).collect()));
+            garment_map_temp.insert("palette2".to_string(), Value::Array(default_pallets.palette2.into_iter().map(|x| Value::String(x)).collect()));
+            garment_map_temp.insert("palette1Specular".to_string(), Value::Array(default_pallets.palette1Specular.into_iter().map(|x| Value::String(x)).collect()));
+            garment_map_temp.insert("palette2Specular".to_string(), Value::Array(default_pallets.palette2Specular.into_iter().map(|x| Value::String(x)).collect()));
+            garment_map_temp.insert("palette1MetallicSpecular".to_string(), Value::Array(default_pallets.palette1MetallicSpecular.into_iter().map(|x| Value::String(x)).collect()));
+            garment_map_temp.insert("palette2MetallicSpecular".to_string(), Value::Array(default_pallets.palette2MetallicSpecular.into_iter().map(|x| Value::String(x)).collect()));
 
-        for (index, garment) in garments.iter().enumerate() {
-            // how do i get the index here?
-            let index = index + 1;
-
-            let path = ressources_path.join(format!("art/dynamic/garmenthue/{}.xml", garment));
-            let xml_file = File::open(path).unwrap();
-            let xml_doc = XmlReader::parse_auto(xml_file).unwrap();
-            let inputs = xml_doc.root();
-
-            let hue = inputs.req("Hue").text().unwrap();
-            let saturation = inputs.req("Saturation").text().unwrap();
-            let brightness = inputs.req("Brightness").text().unwrap();
-            let contrast = inputs.req("Contrast").text().unwrap();
-
-            let metallicspecular: Vec<&str> = inputs.req("Metallicspecular").text().unwrap().split(",").take(3).collect();
-            let specular: Vec<&str> = inputs.req("Specular").text().unwrap().split(",").take(3).collect();
-
-            garment_map_temp.insert(format!("palette{}", index), Value::Array(vec![hue, saturation, brightness, contrast].into_iter().map(|x| Value::String(x.to_string())).collect()));
-            garment_map_temp.insert(format!("palette{}MetallicSpecular", index), Value::Array(metallicspecular.into_iter().map(|x| Value::String(x.to_string())).collect()));
-            garment_map_temp.insert(format!("palette{}Specular", index), Value::Array(specular.into_iter().map(|x| Value::String(x.to_string())).collect()));
+            println!("No garmenthue found for {}. Using default values from the .mat file.", slot_name);
         }
-
 
         let mut slot = Map::new();
 
@@ -262,8 +202,8 @@ async fn main() -> Result<(),()> {
 
         let mut othervalues = Map::new();
         othervalues.insert("derived".to_string(), Value::String("Garment".to_string()));
-        othervalues.insert("flush".to_string(), Value::Array(vec![0,0,0,0].into_iter().map(|x| Value::Number(x.into())).collect()));
-        othervalues.insert("fleshBrightness".to_string(), Value::from(0.1 as f64));
+        othervalues.insert("flush".to_string(), Value::Array(normal_flush.into_iter().map(|x| Value::Number(serde_json::Number::from_f64(x).unwrap())).collect()));
+        othervalues.insert("fleshBrightness".to_string(), Value::from(normal_flesh));
 
         let empty_array: Vec<String> = Vec::new();
         for key in ["palette1", "palette2", "palette1Specular", "palette2Specular", "palette1MetallicSpecular", "palette2MetallicSpecular"] {
@@ -281,7 +221,7 @@ async fn main() -> Result<(),()> {
 
         material_info.insert("otherValues".to_string(), Value::Object(othervalues));
 
-        if slot_name == "creature" {
+        if slot_name == "creature" || slot_name == "head" {
             // eye_mat_other_values
             let mut eye_material_info = Map::new();
 
@@ -295,8 +235,8 @@ async fn main() -> Result<(),()> {
 
             let mut othervalues_eye = Map::new();
             othervalues_eye.insert("derived".to_string(), Value::String("Eye".to_string()));
-            othervalues_eye.insert("flush".to_string(), Value::Array(vec![0,0,0,0].into_iter().map(|x| Value::Number(x.into())).collect()));
-            othervalues_eye.insert("fleshBrightness".to_string(), Value::from(0.1 as f64));
+            othervalues_eye.insert("flush".to_string(), Value::Array(eye_flush.into_iter().map(|x| Value::Number(serde_json::Number::from_f64(x).unwrap())).collect()));
+            othervalues_eye.insert("fleshBrightness".to_string(), Value::from(eye_flesh as f64));
 
             // eye_mat_other_values
             othervalues_eye.insert("palette1".to_string(), Value::Array(eye_mat_other_values.palette1.into_iter().map(|x| Value::String(x)).collect()));
@@ -326,6 +266,9 @@ async fn main() -> Result<(),()> {
     }
 
     let json_value = json!(data_test);
+
+    // TODO: Add skincolor/haircolor support.
+
     let json_string = serde_json::to_string_pretty(&json_value).unwrap();
 
     // replace all \\ with / in the json_string
