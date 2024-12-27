@@ -167,10 +167,6 @@ async fn main() -> Result<(),()> {
 
         let mut garment_map_temp = funcs::extract_garments(garments.clone());
 
-        if slot_name == "hand" {
-            println!("{:?} {:?}", garment_map_temp, garments);
-        }
-
         if garment_map_temp.is_empty() {
             // get the default values from the .mat file
             let default_pallets = funcs::extract_palletes(ressources_path.join(materials[0].clone()));
