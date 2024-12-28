@@ -153,3 +153,13 @@ pub fn extract_flesh(mdl_file: std::path::PathBuf) -> f64 {
 
     return flesh;
 }
+
+pub fn get_derived(mat_file: std::path::PathBuf) -> String {
+    let mat_file = std::fs::File::open(mat_file).unwrap();
+    let xml_doc = XmlReader::parse_auto(mat_file).unwrap();
+    let inputs = xml_doc.root();
+
+    let mat_type_input = inputs.req("Derived").text().unwrap().to_string();
+
+    return mat_type_input;
+}

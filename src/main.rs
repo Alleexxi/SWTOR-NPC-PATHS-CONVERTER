@@ -133,7 +133,10 @@ async fn main() -> Result<(),()> {
         let normal_dds = funcs::extract_dds_paths(ressources_path.join(normal_material.clone()));
         let normal_flush = funcs::extract_flush(ressources_path.join(normal_material.clone()));
         let normal_flesh = funcs::extract_flesh(ressources_path.join(normal_material.clone()));
+        let normal_derived = funcs::get_derived(ressources_path.join(normal_material.clone()));
 
+
+        
         let dds = normal_dds;
 
         let eye_dds = if materials.len() > 1 {
@@ -159,6 +162,12 @@ async fn main() -> Result<(),()> {
             funcs::extract_flesh(ressources_path.join(materials[1].clone()))
         } else {
             0.1
+        };
+
+        let eye_derived = if materials.len() > 1 {
+            funcs::get_derived(ressources_path.join(materials[1].clone()))
+        } else {
+            "Eye".to_string()
         };
 
         #[allow(unused_variables)]
@@ -197,10 +206,11 @@ async fn main() -> Result<(),()> {
         material_info.insert("ddsPaths".to_string(), Value::Object(dds_info));
 
         let mut othervalues = Map::new();
-        othervalues.insert("derived".to_string(), Value::String("Garment".to_string()));
+        othervalues.insert("derived".to_string(), Value::String(normal_derived));
         othervalues.insert("flush".to_string(), Value::Array(normal_flush.into_iter().map(|x| Value::Number(serde_json::Number::from_f64(x).unwrap())).collect()));
         othervalues.insert("fleshBrightness".to_string(), Value::from(normal_flesh));
-
+        othervalues.insert("materialSkinIndex".to_string(), Value::Number(1.into())); // "materialSkinIndex": 1,
+        
         let empty_array: Vec<String> = Vec::new();
         for key in ["palette1", "palette2", "palette1Specular", "palette2Specular", "palette1MetallicSpecular", "palette2MetallicSpecular"] {
             if !garment_map_temp.contains_key(key) {
@@ -230,7 +240,7 @@ async fn main() -> Result<(),()> {
             eye_material_info.insert("ddsPaths".to_string(), Value::Object(dds_info_eye));
 
             let mut othervalues_eye = Map::new();
-            othervalues_eye.insert("derived".to_string(), Value::String("Eye".to_string()));
+            othervalues_eye.insert("derived".to_string(), Value::String(eye_derived));
             othervalues_eye.insert("flush".to_string(), Value::Array(eye_flush.into_iter().map(|x| Value::Number(serde_json::Number::from_f64(x).unwrap())).collect()));
             othervalues_eye.insert("fleshBrightness".to_string(), Value::from(eye_flesh as f64));
 
